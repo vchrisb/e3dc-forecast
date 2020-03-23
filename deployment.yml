@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: e3dc-forecast
+  labels:
+    app: e3dc-forecast
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: e3dc-forecast
+  template:
+    metadata:
+      labels:
+        app: e3dc-forecast
+    spec:
+      containers:
+      - name: e3dc-forecast
+        image: vchrisb/e3dc-forecast:latest
+        env:
+        - name: REST_URL
+          valueFrom:
+            secretKeyRef:
+              name: e3dc-forecast-secret
+              key: url
+        - name: REST_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: e3dc-forecast-secret
+              key: username
+        - name: REST_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: e3dc-forecast-secret
+              key: password
+        - name: FORECAST_LAT
+          valueFrom:
+            secretKeyRef:
+              name: e3dc-forecast-secret
+              key: lat
+        - name: FORECAST_LON
+          valueFrom:
+            secretKeyRef:
+              name: e3dc-forecast-secret
+              key: lon
+        - name: FORECAST_DEC
+          valueFrom:
+            secretKeyRef:
+              name: e3dc-forecast-secret
+              key: dec
+        - name: FORECAST_AZ
+        valueFrom:
+          secretKeyRef:
+            name: e3dc-forecast-secret
+            key: az
