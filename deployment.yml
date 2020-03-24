@@ -49,7 +49,7 @@ spec:
               name: e3dc-forecast-secret
               key: dec
         - name: FORECAST_AZ
-        valueFrom:
-          secretKeyRef:
-            name: e3dc-forecast-secret
-            key: az
+          valueFrom:
+            secretKeyRef:
+              name: e3dc-forecast-secret
+              key: az
