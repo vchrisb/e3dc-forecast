@@ -17,6 +17,7 @@ logging.basicConfig(level=logging.DEBUG, format="%(asctime)s:%(message)s")
 polling_cycle = 15
 readings = 20
 sliding_average_grid = collections.deque(maxlen=readings)
+sliding_average_L1 = collections.deque(maxlen=readings)
 sliding_average_house = collections.deque(maxlen=readings)
 sliding_average_ac = collections.deque(maxlen=readings)
 sliding_average_acCurrent = collections.deque(maxlen=readings)
@@ -24,6 +25,7 @@ sliding_average_acCurrent = collections.deque(maxlen=readings)
 # Sample Basic Auth Url with login values as username and password
 url_base = os.getenv("REST_URL")
 url_poll = url_base + "/api/poll"
+url_power_data = url_base + "/api/power_data"
 url_power_settings = url_base + "/api/power_settings"
 url_info = url_base + "/api/system_info"
 url_battery = url_base + "/api/battery_data"
@@ -42,7 +44,7 @@ def forecast():
     request = requests.get(url_weather)
 
     if request.status_code == 429:
-        period_remaining = (60 - datetime.datetime.utcnow().minute) * 60
+        period_remaining = (60 - datetime.datetime.now(datetime.timezone.utc).minute) * 60
         raise RateLimitException('API response: {}'.format(request.status_code), period_remaining)
     
     forecast = request.json()
@@ -98,13 +100,13 @@ watt_hours = [0]*24
 watt_day = 0
 watt_battery = 0
 
-next_cycle = datetime.datetime.utcnow()
+next_cycle = datetime.datetime.now(datetime.timezone.utc)
 next_forecast = next_cycle
 
 while(True):
 
-    if next_forecast < datetime.datetime.utcnow():
-        next_forecast = datetime.datetime.utcnow() + datetime.timedelta(0,600)
+    if next_forecast < datetime.datetime.now(datetime.timezone.utc):
+        next_forecast = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(0,600)
         try:
             watt_hours, watt_day, watt_battery = forecast()
         except RateLimitException:
@@ -140,10 +142,17 @@ while(True):
         #acPower = acPower + battery
 
     sliding_average_house.append(house)
-    sliding_average_grid.append(grid * -1)
+    sliding_average_grid.append(grid)
 
     mean_house = round(mean(sliding_average_house),2)
     mean_grid = round(mean(sliding_average_grid),2)
+
+    # power_data
+    response_power_data = get_e3dc(url_power_data)
+    L1 = response_power_data["power"]["L1"]
+    sliding_average_L1.append(L1)
+
+    mean_L1 = round(mean(sliding_average_L1),2)
 
     # pvi
     response_pvi = get_e3dc(url_pvi)
@@ -162,18 +171,25 @@ while(True):
     maxChargePower = response_power["maxChargePower"]
 
     logging.info("Grid: {}".format(mean_grid))
+    logging.info("L1: {}".format(mean_L1))
     logging.info("House: {}".format(mean_house))
     logging.info("AC: {}".format(mean_ac))
     logging.info("AC Current: {}".format(mean_acCurrent))
 
 
-    if next_cycle < datetime.datetime.utcnow():
+    if next_cycle < datetime.datetime.now(datetime.timezone.utc):
         logging.debug("next cycle")
         # if it is after 13 o'clock, try disabling powerlimits and set next_cylce to nextday 6 o'clock
-        if 13 <= datetime.datetime.utcnow().hour <= 23:
+        if datetime.time(13,0,0) <= datetime.datetime.now(datetime.timezone.utc).time() < datetime.time(5,0,0):
             next_cycle = datetime.datetime.combine(datetime.date.today() + datetime.timedelta(days=1), datetime.time(5))
-            logging.debug("between 13 and 23 o'clock, disable powerLimits")
+            logging.debug("between 13 and 5 o'clock UTC, disable powerLimits")
             powerLimitsUsed = False   
+
+        elif datetime.time(5,0,0) <= datetime.datetime.now(datetime.timezone.utc).time() < datetime.time(7,30,0):
+            print(datetime.datetime.now(datetime.timezone.utc).hour)
+            logging.debug("between 5:00 and 7:30 o'clock UTC, enable powerLimits")
+            powerLimitsUsed = True
+            maxChargePower = 0
 
         elif sum(watt_hours[0:14]) < 25000:
             logging.debug("skipping as forcasted only {} until 13 o´clock UTC".format(sum(watt_hours[0:14])))
@@ -186,7 +202,7 @@ while(True):
         #    powerLimitsUsed = False
         
         #elif mean_grid >= 0.997 * deratePower or mean_ac >= 0.995 * 4600:
-        elif mean_grid >= 0.997 * deratePower or mean_acCurrent >= 19.70:
+        elif mean_grid <= -0.997 * deratePower or mean_acCurrent >= 19.6 or mean_ac >= 4500:
             logging.debug("derate or line limit reaching, increasing charge power")
             if maxChargePower < maxChargePowerTotal:
                 powerLimitsUsed = True
@@ -194,7 +210,7 @@ while(True):
             else:
                 powerLimitsUsed = False
                 logging.debug("max charge power reached")
-        elif mean_acCurrent <= 19.0: #mean_ac <= 
+        elif mean_acCurrent <= 10.0: #mean_ac <= 
             logging.debug("line limit below 90%, decreasing charge power")
             if maxChargePower > 0:
                 powerLimitsUsed = True
@@ -206,7 +222,7 @@ while(True):
 
         if response_power["powerLimitsUsed"] != powerLimitsUsed or response_power["maxChargePower"] != maxChargePower:
             set_powerlimits(powerLimitsUsed, maxChargePower)
-            next_cycle = datetime.datetime.utcnow() + datetime.timedelta(0,180) 
+            next_cycle = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(0,180) 
     
     # polling_cycle
     time.sleep(polling_cycle)
