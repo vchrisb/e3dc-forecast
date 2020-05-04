@@ -12,7 +12,7 @@ from backoff import on_exception, expo
 
 
 #logging
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s:%(message)s")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s:%(message)s")
 
 polling_cycle = 15
 readings = 20
@@ -40,7 +40,7 @@ auth_values = (user, passwd)
 @limits(calls=12, period=3600)
 def forecast():
 
-    logging.debug("Getting weather forecast")
+    logging.info("Getting weather forecast")
     request = requests.get(url_weather)
 
     if request.status_code == 429:
@@ -70,15 +70,15 @@ def set_powerlimits(powerLimitsUsed=False, maxChargePower=1500, weatherRegulated
     headers = {'Content-Type': 'application/json'}
     request = requests.post(url_power_settings, auth=auth_values, data=json.dumps(payload), headers=headers)
     if request.status_code == 200:
-        logging.debug("Power Limits set to {} and max charge power to {}".format(powerLimitsUsed, maxChargePower))
+        logging.info("Power Limits set to {} and max charge power to {}".format(powerLimitsUsed, maxChargePower))
         return True
     else:
-        logging.debug("Failed to set powerlimits")
+        logging.info("Failed to set powerlimits")
         return False
 
 @on_exception(expo, requests.exceptions.RequestException, max_tries=8)
 def get_e3dc(url):
-    logging.debug("Requesting {}".format(url))
+    logging.info("Requesting {}".format(url))
     return requests.get(url, auth=auth_values).json()
 
 # Make a request to the endpoint using the correct auth values for info
@@ -110,10 +110,10 @@ while(True):
         try:
             watt_hours, watt_day, watt_battery = forecast()
         except RateLimitException:
-            logging.debug("Ratelimit")
+            logging.info("Ratelimit")
             pass
         except requests.exceptions.RequestException:
-            logging.debug("Connection Error")
+            logging.info("Connection Error")
             pass           
 
     # Make a request to the endpoint using the correct auth values
@@ -121,9 +121,9 @@ while(True):
     #free_battery = response_battery["moduleVoltage"] * (response_battery["usuableCapacity"] - response_battery["usuableRemainingCapacity"])
     
     #print(free_battery)
-    logging.debug("Watt Hours: {}".format(watt_hours))
-    logging.debug("Watt Day: {}".format(watt_day))
-    logging.debug("Watt Battery: {}".format(watt_battery))
+    logging.info("Watt Hours: {}".format(watt_hours))
+    logging.info("Watt Day: {}".format(watt_day))
+    logging.info("Watt Battery: {}".format(watt_battery))
 
     # Make a request to the endpoint using the correct auth values
     response_poll = get_e3dc(url_poll)
@@ -136,7 +136,7 @@ while(True):
     stateOfCharge = response_poll["stateOfCharge"]
 
     if battery < 0:
-        logging.debug("skipping cycle due to battery discharge")
+        logging.info("skipping cycle due to battery discharge")
         time.sleep(polling_cycle)
         continue
         #acPower = acPower + battery
@@ -178,45 +178,45 @@ while(True):
 
 
     if next_cycle < datetime.datetime.now(datetime.timezone.utc):
-        logging.debug("next cycle")
-        # if it is after 13 o'clock, try disabling powerlimits and set next_cylce to nextday 6 o'clock
-        if datetime.time(13,0,0) <= datetime.datetime.now(datetime.timezone.utc).time() < datetime.time(5,0,0):
-            next_cycle = datetime.datetime.combine(datetime.date.today() + datetime.timedelta(days=1), datetime.time(5))
-            logging.debug("between 13 and 5 o'clock UTC, disable powerLimits")
+        logging.info("next cycle")
+        # if it is after 13 o'clock, try disabling powerlimits and set next_cylce to nextday 24 o'clock
+        if datetime.time(12,0,0) <= datetime.datetime.now(datetime.timezone.utc).time() < datetime.time(23,59,59):
+            next_cycle = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)).replace(hour=5, minute=0, second=0, microsecond=0)
+            logging.info("between 12 and 5 o'clock UTC, disable powerLimits")
             powerLimitsUsed = False   
 
-        elif datetime.time(5,0,0) <= datetime.datetime.now(datetime.timezone.utc).time() < datetime.time(7,30,0):
+        elif datetime.time(0,0,0) <= datetime.datetime.now(datetime.timezone.utc).time() < datetime.time(7,30,0) and mean_ac < 4300:
             print(datetime.datetime.now(datetime.timezone.utc).hour)
-            logging.debug("between 5:00 and 7:30 o'clock UTC, enable powerLimits")
+            logging.info("between 0:00 and 7:30 o'clock UTC, enable powerLimits")
             powerLimitsUsed = True
             maxChargePower = 0
 
-        elif sum(watt_hours[0:14]) < 25000:
-            logging.debug("skipping as forcasted only {} until 13 o´clock UTC".format(sum(watt_hours[0:14])))
-            logging.debug("disable powerLimits")
+        elif sum(watt_hours[0:15]) < 25000:
+            logging.info("skipping as forcasted only {} until 14 o´clock UTC".format(sum(watt_hours[0:15])))
+            logging.info("disable powerLimits")
             powerLimitsUsed = False
 
         #keep charging level at at least 10%
         #elif stateOfCharge < 10:
-        #    logging.debug("below 10% SoC, disable powerlimits")
+        #    logging.info("below 10% SoC, disable powerlimits")
         #    powerLimitsUsed = False
         
         #elif mean_grid >= 0.997 * deratePower or mean_ac >= 0.995 * 4600:
         elif mean_grid <= -0.997 * deratePower or mean_acCurrent >= 19.6 or mean_ac >= 4500:
-            logging.debug("derate or line limit reaching, increasing charge power")
+            logging.info("derate or line limit reaching, increasing charge power")
             if maxChargePower < maxChargePowerTotal:
                 powerLimitsUsed = True
                 maxChargePower = maxChargePower + 100
             else:
                 powerLimitsUsed = False
-                logging.debug("max charge power reached")
+                logging.info("max charge power reached")
         elif mean_acCurrent <= 10.0: #mean_ac <= 
-            logging.debug("line limit below 90%, decreasing charge power")
+            logging.info("line limit below 90%, decreasing charge power")
             if maxChargePower > 0:
                 powerLimitsUsed = True
                 maxChargePower = maxChargePower - 100
             else:
-                logging.debug("charge disabled")            
+                logging.info("charge disabled")            
         else:
             pass
 
