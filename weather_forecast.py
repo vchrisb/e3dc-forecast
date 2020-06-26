@@ -202,7 +202,7 @@ while(True):
         #    powerLimitsUsed = False
         
         #elif mean_grid >= 0.997 * deratePower or mean_ac >= 0.995 * 4600:
-        elif mean_grid <= -0.997 * deratePower or mean_acCurrent >= 19.6 or mean_ac >= 4500:
+        elif mean_grid <= -0.997 * deratePower or mean_acCurrent >= 19.5 or mean_ac >= 4450:
             logging.info("derate or line limit reaching, increasing charge power")
             if maxChargePower < maxChargePowerTotal:
                 powerLimitsUsed = True
