@@ -214,7 +214,7 @@ while(True):
             logging.info("line limit below 90%, decreasing charge power")
             if maxChargePower > 0:
                 powerLimitsUsed = True
-                maxChargePower = maxChargePower - 100
+                maxChargePower = maxChargePower - 50
             else:
                 logging.info("charge disabled")            
         else:
