@@ -210,13 +210,13 @@ while(True):
             else:
                 powerLimitsUsed = False
                 logging.info("max charge power reached")
-        elif mean_acCurrent <= 10.0: #mean_ac <= 
-            logging.info("line limit below 90%, decreasing charge power")
-            if maxChargePower > 0:
-                powerLimitsUsed = True
-                maxChargePower = maxChargePower - 50
-            else:
-                logging.info("charge disabled")            
+        # elif mean_acCurrent <= 10.0: #mean_ac <= 
+        #     logging.info("line limit below 90%, decreasing charge power")
+        #     if maxChargePower > 0:
+        #         powerLimitsUsed = True
+        #         maxChargePower = maxChargePower - 50
+        #     else:
+        #         logging.info("charge disabled")            
         else:
             pass
 
