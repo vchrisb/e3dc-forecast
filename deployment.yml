@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: e3dc-forecast
-        image: vchrisb/e3dc-forecast:latest
+        image: ghcr.io/vchrisb/e3dc-forecast:latest
         imagePullPolicy: Always
         env:
         - name: REST_URL

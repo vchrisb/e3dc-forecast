@@ -10,7 +10,7 @@ export FORECAST_LAT=""
 export FORECAST_LON=""
 export FORECAST_DEC=""
 export FORECAST_AZ=""
-docker run --name e3dc-forecast -e REST_URL -e REST_USERNAME -e REST_PASSWORD -e FORECAST_LAT -e FORECAST_LON -e FORECAST_DEC -e FORECAST_AZ vchrisb/e3dc-forecast
+docker run --name e3dc-forecast -e REST_URL -e REST_USERNAME -e REST_PASSWORD -e FORECAST_LAT -e FORECAST_LON -e FORECAST_DEC -e FORECAST_AZ ghcr.io/vchrisb/e3dc-forecast
 ```
 
 ## Run Kubernetes
