@@ -22,11 +22,14 @@ jobs:
           echo ::set-output name=docker_platforms::linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64
           echo ::set-output name=docker_username::vchrisb
           echo ::set-output name=docker_image::vchrisb/e3dc-forecast
+      - 
+        name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
       -
         name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
         with:
-          buildx-version: latest
+          version: latest
       -
         # https://github.com/actions/checkout
         name: Checkout
