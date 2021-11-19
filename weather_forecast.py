@@ -20,6 +20,7 @@ sliding_average_grid = collections.deque(maxlen=readings)
 sliding_average_L1 = collections.deque(maxlen=readings)
 sliding_average_house = collections.deque(maxlen=readings)
 sliding_average_ac = collections.deque(maxlen=readings)
+sliding_average_acApparent = collections.deque(maxlen=readings)
 sliding_average_acCurrent = collections.deque(maxlen=readings)
 
 # Sample Basic Auth Url with login values as username and password
@@ -179,13 +180,16 @@ while True:
 
     # pvi
     response_pvi = get_e3dc(url_pvi)
+    acApparentPower = response_pvi["acApparentPower"]
     acPower = response_pvi["acPower"]
     acCurrent = response_pvi["acCurrent"]
 
     sliding_average_ac.append(acPower)
+    sliding_average_acApparent.append(acApparentPower)
     sliding_average_acCurrent.append(acCurrent)
 
     mean_ac = round(mean(sliding_average_ac), 2)
+    mean_acApparent = round(mean(sliding_average_acApparent), 2)
     mean_acCurrent = round(mean(sliding_average_acCurrent), 2)
 
     # get power_settings
@@ -197,6 +201,7 @@ while True:
     logging.info("L1: {}".format(mean_L1))
     logging.info("House: {}".format(mean_house))
     logging.info("AC: {}".format(mean_ac))
+    logging.info("AC Apparent: {}".format(mean_acApparent))
     logging.info("AC Current: {}".format(mean_acCurrent))
 
     if next_cycle < datetime.datetime.now(datetime.timezone.utc):
@@ -243,7 +248,7 @@ while True:
         elif (
             mean_grid <= -0.997 * deratePower
             or mean_acCurrent >= 19.5
-            or mean_ac >= 4450
+            or mean_acApparent >= 4450
         ):
             logging.info("derate or line limit reaching, increasing charge power")
             if maxChargePower < maxChargePowerTotal:
