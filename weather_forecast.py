@@ -173,11 +173,11 @@ while True:
     mean_grid = round(mean(sliding_average_grid), 2)
 
     # power_data
-    #response_power_data = get_e3dc(url_power_data)
-    #L1 = response_power_data["power"]["L1"]
-    #sliding_average_L1.append(L1)
+    # response_power_data = get_e3dc(url_power_data)
+    # L1 = response_power_data["power"]["L1"]
+    # sliding_average_L1.append(L1)
 
-    #mean_L1 = round(mean(sliding_average_L1), 2)
+    # mean_L1 = round(mean(sliding_average_L1), 2)
 
     # pvi
     response_pvi = get_e3dc(url_pvi)
@@ -203,7 +203,7 @@ while True:
     pvDerated = response_info["pvDerated"]
 
     logging.info("Grid: {}".format(mean_grid))
-    #logging.info("L1: {}".format(mean_L1))
+    # logging.info("L1: {}".format(mean_L1))
     logging.info("House: {}".format(mean_house))
     logging.info("AC: {}".format(mean_ac))
     logging.info("AC Apparent: {}".format(mean_acApparent))
@@ -252,8 +252,8 @@ while True:
 
         # elif mean_grid >= 0.997 * deratePower or mean_ac >= 0.995 * 4600:
         elif (
-        #    mean_grid <= -0.997 * deratePower
-        #    or mean_acCurrent >= 19.5
+            #    mean_grid <= -0.997 * deratePower
+            #    or mean_acCurrent >= 19.5
             pvDerated
             or mean_acApparent >= 4500
         ):
