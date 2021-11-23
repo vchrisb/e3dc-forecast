@@ -255,7 +255,7 @@ while True:
             #    mean_grid <= -0.997 * deratePower
             #    or mean_acCurrent >= 19.5
             pvDerated
-            or mean_acApparent >= 4500
+            or mean_acApparent >= 4550
         ):
             logging.info("derate or line limit reaching, increasing charge power")
             if maxChargePower < maxChargePowerTotal:
