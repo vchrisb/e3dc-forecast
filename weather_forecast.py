@@ -209,6 +209,8 @@ while True:
     logging.info("AC Apparent: {}".format(mean_acApparent))
     logging.info("AC Current: {}".format(mean_acCurrent))
     logging.info("PV Derated: {}".format(pvDerated))
+    logging.info("Power Limits Used: {}".format(powerLimitsUsed))
+    logging.info("Max Charge Power: {}".format(maxChargePower))
 
     if next_cycle < datetime.datetime.now(datetime.timezone.utc):
         logging.info("next cycle")
