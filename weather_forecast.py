@@ -26,7 +26,7 @@ sliding_average_acCurrent = collections.deque(maxlen=readings)
 # Sample Basic Auth Url with login values as username and password
 url_base = os.getenv("REST_URL")
 url_poll = url_base + "/api/poll"
-url_power_data = url_base + "/api/power_data"
+url_powermeter_data = url_base + "/api/powermeter_data"
 url_power_settings = url_base + "/api/power_settings"
 url_info = url_base + "/api/system_info"
 url_status = url_base + "/api/system_status"
@@ -173,7 +173,7 @@ while True:
     mean_grid = round(mean(sliding_average_grid), 2)
 
     # power_data
-    # response_power_data = get_e3dc(url_power_data)
+    # response_power_data = get_e3dc(url_powermeter_data)
     # L1 = response_power_data["power"]["L1"]
     # sliding_average_L1.append(L1)
 
