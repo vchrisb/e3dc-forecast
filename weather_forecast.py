@@ -181,9 +181,9 @@ while True:
 
     # pvi
     response_pvi = get_e3dc(url_pvi)
-    acApparentPower = response_pvi["acApparentPower"]
-    acPower = response_pvi["acPower"]
-    acCurrent = response_pvi["acCurrent"]
+    acApparentPower = response_pvi["phases"]["0"]["apparentPower"]
+    acPower = response_pvi["phases"]["0"]["power"]
+    acCurrent = response_pvi["phases"]["0"]["current"]
 
     sliding_average_ac.append(acPower)
     sliding_average_acApparent.append(acApparentPower)
