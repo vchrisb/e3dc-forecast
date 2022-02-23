@@ -257,12 +257,12 @@ while True:
             #    mean_grid <= -0.997 * deratePower
             #    or mean_acCurrent >= 19.5
             pvDerated
-            or mean_acApparent >= 4550
+            or mean_acApparent >= 4500
         ):
             logging.info("derate or line limit reaching, increasing charge power")
+            maxChargePower = round(maxChargePower + 200, -2)
             if maxChargePower < maxChargePowerTotal:
                 powerLimitsUsed = True
-                maxChargePower = maxChargePower + 100
             else:
                 powerLimitsUsed = False
                 logging.info("max charge power reached")
