@@ -6,6 +6,7 @@ import os
 import re
 import time
 from statistics import mean
+from zoneinfo import ZoneInfo
 
 import requests
 from backoff import expo, on_exception
@@ -37,6 +38,8 @@ user = os.getenv("REST_USERNAME")
 passwd = os.getenv("REST_PASSWORD")
 auth_values = (user, passwd)
 
+zone = ZoneInfo("Europe/Berlin")
+
 
 @on_exception(expo, requests.exceptions.RequestException, max_tries=8)
 @limits(calls=12, period=3600)
@@ -46,9 +49,7 @@ def forecast():
     request = requests.get(url_weather)
 
     if request.status_code == 429:
-        period_remaining = (
-            60 - datetime.datetime.now(datetime.timezone.utc).minute
-        ) * 60
+        period_remaining = (60 - datetime.datetime.now(zone).minute) * 60
         raise RateLimitException(
             "API response: {}".format(request.status_code), period_remaining
         )
@@ -62,7 +63,7 @@ def forecast():
             watt_hours[int(m.group(1))] = item[1]
 
     watt_battery = 0
-    for hour in range(datetime.datetime.utcnow().hour, 13 + 1):
+    for hour in range(datetime.datetime.now(zone).hour, 13 + 1):
         if watt_hours[hour] >= 4600:
             watt_battery += watt_hours[hour] - 4600
 
@@ -123,7 +124,7 @@ watt_hours = [0] * 24
 watt_day = 0
 watt_battery = 0
 
-next_cycle = datetime.datetime.now(datetime.timezone.utc)
+next_cycle = datetime.datetime.now(zone)
 next_forecast = next_cycle
 
 mean_acApparent = 0
@@ -131,10 +132,8 @@ mean_acApparent = 0
 
 while True:
 
-    if next_forecast < datetime.datetime.now(datetime.timezone.utc):
-        next_forecast = datetime.datetime.now(
-            datetime.timezone.utc
-        ) + datetime.timedelta(0, 600)
+    if next_forecast < datetime.datetime.now(zone):
+        next_forecast = datetime.datetime.now(zone) + datetime.timedelta(0, 600)
         try:
             watt_hours, watt_day, watt_battery = forecast()
         except RateLimitException:
@@ -222,35 +221,34 @@ while True:
     logging.info("Power Limits Used: {}".format(powerLimitsUsed))
     logging.info("Max Charge Power: {}".format(maxChargePower))
 
-    if next_cycle < datetime.datetime.now(datetime.timezone.utc):
+    if next_cycle < datetime.datetime.now(zone):
         logging.info("next cycle")
         # if it is after 13 o'clock, try disabling powerlimits and set next_cylce to nextday 24 o'clock
         if (
-            datetime.time(12, 0, 0)
-            <= datetime.datetime.now(datetime.timezone.utc).time()
+            datetime.time(13, 0, 0)
+            <= datetime.datetime.now(zone).time()
             < datetime.time(23, 59, 59)
         ):
             next_cycle = (
-                datetime.datetime.now(datetime.timezone.utc)
-                + datetime.timedelta(days=1)
+                datetime.datetime.now(zone) + datetime.timedelta(days=1)
             ).replace(hour=5, minute=0, second=0, microsecond=0)
-            logging.info("between 12 and 5 o'clock UTC, disable powerLimits")
+            logging.info("between 13 and 5 o'clock, disable powerLimits")
             powerLimitsUsed = False
 
         elif (
             datetime.time(0, 0, 0)
-            <= datetime.datetime.now(datetime.timezone.utc).time()
+            <= datetime.datetime.now(zone).time()
             < datetime.time(7, 30, 0)
             and mean_ac < 4300
         ):
-            print(datetime.datetime.now(datetime.timezone.utc).hour)
-            logging.info("between 0:00 and 7:30 o'clock UTC, enable powerLimits")
+            print(datetime.datetime.now(zone).hour)
+            logging.info("between 0:00 and 7:30 o'clock, enable powerLimits")
             powerLimitsUsed = True
             maxChargePower = 0
 
         elif sum(watt_hours[0:15]) < 25000:
             logging.info(
-                "skipping as forcasted only {} until 14 o´clock UTC".format(
+                "skipping as forcasted only {} until 14 o´clock".format(
                     sum(watt_hours[0:15])
                 )
             )
@@ -291,9 +289,12 @@ while True:
             or response_power["maxChargePower"] != maxChargePower
         ):
             set_powerlimits(powerLimitsUsed, maxChargePower)
-            next_cycle = datetime.datetime.now(
-                datetime.timezone.utc
-            ) + datetime.timedelta(0, 180)
+            # clear sliding_average_acApparent
+            sliding_average_acApparent = collections.deque(maxlen=readings)
+            # wait until 50% of the sliding_average_acApparent updates
+            next_cycle = datetime.datetime.now(zone) + datetime.timedelta(
+                0, (readings / 2) * polling_cycle
+            )
 
     # polling_cycle
     time.sleep(polling_cycle)
