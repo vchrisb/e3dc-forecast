@@ -126,6 +126,9 @@ watt_battery = 0
 next_cycle = datetime.datetime.now(datetime.timezone.utc)
 next_forecast = next_cycle
 
+mean_acApparent = 0
+
+
 while True:
 
     if next_forecast < datetime.datetime.now(datetime.timezone.utc):
@@ -184,6 +187,13 @@ while True:
     acApparentPower = response_pvi["phases"]["0"]["apparentPower"]
     acPower = response_pvi["phases"]["0"]["power"]
     acCurrent = response_pvi["phases"]["0"]["current"]
+
+    if mean_acApparent > 0 and acApparentPower > 0:
+        # try to detect clouds
+        if (acApparentPower / mean_acApparent) < 0.8:
+            logging.info("Likely clouds. Waiting for next cycle.")
+            time.sleep(polling_cycle)
+            continue
 
     sliding_average_ac.append(acPower)
     sliding_average_acApparent.append(acApparentPower)
