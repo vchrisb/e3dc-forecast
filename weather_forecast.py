@@ -214,9 +214,12 @@ while True:
     logging.info("Grid: {}".format(mean_grid))
     # logging.info("L1: {}".format(mean_L1))
     logging.info("House: {}".format(mean_house))
-    logging.info("AC: {}".format(mean_ac))
-    logging.info("AC Apparent: {}".format(mean_acApparent))
-    logging.info("AC Current: {}".format(mean_acCurrent))
+    logging.info("AC mean: {}".format(mean_ac))
+    logging.info("AC: {}".format(acPower))
+    logging.info("AC Apparent mean: {}".format(mean_acApparent))
+    logging.info("AC Apparent: {}".format(acApparentPower))
+    logging.info("AC Current mean: {}".format(mean_acCurrent))
+    logging.info("AC Current: {}".format(acCurrent))
     logging.info("PV Derated: {}".format(pvDerated))
     logging.info("Power Limits Used: {}".format(powerLimitsUsed))
     logging.info("Max Charge Power: {}".format(maxChargePower))
@@ -265,7 +268,7 @@ while True:
             #    mean_grid <= -0.997 * deratePower
             #    or mean_acCurrent >= 19.5
             pvDerated
-            or mean_acApparent >= 4500
+            or mean_acApparent >= 4400
         ):
             logging.info("derate or line limit reaching, increasing charge power")
             maxChargePower = round(maxChargePower + 200, -2)
