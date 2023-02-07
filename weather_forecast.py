@@ -44,7 +44,6 @@ zone = ZoneInfo("Europe/Berlin")
 @on_exception(expo, requests.exceptions.RequestException, max_tries=8)
 @limits(calls=12, period=3600)
 def forecast():
-
     logging.info("Getting weather forecast")
     request = requests.get(url_weather)
 
@@ -131,7 +130,6 @@ mean_acApparent = 0
 
 
 while True:
-
     if next_forecast < datetime.datetime.now(zone):
         next_forecast = datetime.datetime.now(zone) + datetime.timedelta(0, 600)
         try:
