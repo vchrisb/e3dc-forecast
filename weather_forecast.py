@@ -327,7 +327,7 @@ while True:
         #         maxChargePower = maxChargePower - 50
         #     else:
         #         logging.info("charge disabled")
-        elif powerLimitsUsed is False or maxChargePower != 0 and newDay:
+        elif powerLimitsUsed is False and newDay:
             logging.info("enable powerLimits and set max charge to 0")
             powerLimitsUsed = True
             maxChargePower = 0
