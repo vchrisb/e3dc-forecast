@@ -327,7 +327,8 @@ while True:
         #         maxChargePower = maxChargePower - 50
         #     else:
         #         logging.info("charge disabled")
-        elif powerLimitsUsed is False and newDay:
+        # if it is the beginning of a new day or after a pod restart
+        elif powerLimitsUsed is False and newDay and stateOfCharge < 85:
             logging.info("enable powerLimits and set max charge to 0")
             powerLimitsUsed = True
             maxChargePower = 0
