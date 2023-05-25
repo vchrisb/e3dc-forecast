@@ -172,7 +172,7 @@ while True:
     if next_forecast < datetime.datetime.now(zone):
         next_forecast = datetime.datetime.now(zone) + datetime.timedelta(0, 1800)
         try:
-            watt_hours, watt_day, watt_battery = forecast() # type: ignore
+            watt_hours, watt_day, watt_battery = forecast()  # type: ignore
         except RateLimitException:
             logging.info("Ratelimit")
             pass
