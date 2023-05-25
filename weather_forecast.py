@@ -148,7 +148,7 @@ def get_e3dc(url):
 response_info: Any = get_e3dc(url_info)
 deratePower: int = response_info["deratePower"]
 installedPeakPower: int = response_info["installedPeakPower"] / 1000
-maxChargePowerTotal = 1500
+maxChargePowerTotal: int = 1500
 
 # weather forecast
 lat: str = os.getenv("FORECAST_LAT")
@@ -313,12 +313,13 @@ while True:
                 powerLimitsUsed = True
             else:
                 seconds_to_sleep = (
-                    datetime.datetime.now(zone)
-                    - datetime.datetime.now(zone).replace(
+                    datetime.datetime.now(zone).replace(
                         hour=13, minute=0, second=0, microsecond=0
                     )
+                    - datetime.datetime.now(zone)
                 ).total_seconds()
                 powerLimitsUsed = False
+                maxChargePower = maxChargePowerTotal
                 logging.info("max charge power reached")
         # elif mean_acCurrent <= 10.0: #mean_ac <=
         #     logging.info("line limit below 90%, decreasing charge power")
