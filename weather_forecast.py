@@ -6,6 +6,7 @@ import os
 import re
 import time
 from statistics import mean
+from typing import Any, Collection
 from zoneinfo import ZoneInfo
 
 import requests
@@ -15,30 +16,70 @@ from ratelimit import RateLimitException, limits
 # logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s:%(message)s")
 
-polling_cycle = 15
-readings = 20
-sliding_average_grid = collections.deque(maxlen=readings)
-sliding_average_L1 = collections.deque(maxlen=readings)
-sliding_average_house = collections.deque(maxlen=readings)
-sliding_average_ac = collections.deque(maxlen=readings)
-sliding_average_acApparent = collections.deque(maxlen=readings)
-sliding_average_acCurrent = collections.deque(maxlen=readings)
+polling_cycle: int = 15
+readings: int = 20
+sliding_average_grid: Collection
+sliding_average_L1: Collection
+sliding_average_house: Collection
+sliding_average_ac: Collection
+sliding_average_acApparent: Collection
+sliding_average_acCurrent: Collection
+
+mean_house: float
+mean_grid: float
+mean_ac: float
+mean_acApparent: float
+mean_acCurrent: float
+
+newDay: bool
 
 # Sample Basic Auth Url with login values as username and password
-url_base = os.getenv("REST_URL")
-url_poll = url_base + "/api/poll"
-url_powermeter_data = url_base + "/api/powermeter_data"
-url_power_settings = url_base + "/api/power_settings"
-url_info = url_base + "/api/system_info"
-url_status = url_base + "/api/system_status"
-url_battery = url_base + "/api/battery_data"
-url_pvi = url_base + "/api/pvi_data"
+url_base: str = os.getenv("REST_URL", default="https://localhost")
+url_poll: str = url_base + "/api/poll"
+url_powermeter_data: str = url_base + "/api/powermeter_data"
+url_power_settings: str = url_base + "/api/power_settings"
+url_info: str = url_base + "/api/system_info"
+url_status: str = url_base + "/api/system_status"
+url_battery: str = url_base + "/api/battery_data"
+url_pvi: str = url_base + "/api/pvi_data"
 
-user = os.getenv("REST_USERNAME")
-passwd = os.getenv("REST_PASSWORD")
-auth_values = (user, passwd)
+user: str = os.getenv("REST_USERNAME")
+passwd: str = os.getenv("REST_PASSWORD")
+auth_values: tuple = (user, passwd)
 
-zone = ZoneInfo("Europe/Berlin")
+zone: str = ZoneInfo("Europe/Berlin")
+
+
+def init_values():
+    global sliding_average_grid
+    global sliding_average_L1
+    global sliding_average_house
+    global sliding_average_ac
+    global sliding_average_acApparent
+    global sliding_average_acCurrent
+
+    global mean_house
+    global mean_grid
+    global mean_ac
+    global mean_acApparent
+    global mean_acCurrent
+
+    global newDay
+
+    sliding_average_grid = collections.deque(maxlen=readings)
+    sliding_average_L1 = collections.deque(maxlen=readings)
+    sliding_average_house = collections.deque(maxlen=readings)
+    sliding_average_ac = collections.deque(maxlen=readings)
+    sliding_average_acApparent = collections.deque(maxlen=readings)
+    sliding_average_acCurrent = collections.deque(maxlen=readings)
+
+    mean_house = 0.0
+    mean_grid = 0.0
+    mean_ac = 0.0
+    mean_acApparent = 0.0
+    mean_acCurrent = 0.0
+
+    newDay = True
 
 
 @on_exception(expo, requests.exceptions.RequestException, max_tries=8)
@@ -104,34 +145,49 @@ def get_e3dc(url):
 
 # Make a request to the endpoint using the correct auth values for info
 
-response_info = get_e3dc(url_info)
-deratePower = response_info["deratePower"]
-installedPeakPower = response_info["installedPeakPower"] / 1000
+response_info: Any = get_e3dc(url_info)
+deratePower: int = response_info["deratePower"]
+installedPeakPower: int = response_info["installedPeakPower"] / 1000
 maxChargePowerTotal = 1500
 
 # weather forecast
-lat = os.getenv("FORECAST_LAT")
-lon = os.getenv("FORECAST_LON")
-dec = os.getenv("FORECAST_DEC")
-az = os.getenv("FORECAST_AZ")
+lat: str = os.getenv("FORECAST_LAT")
+lon: str = os.getenv("FORECAST_LON")
+dec: str = os.getenv("FORECAST_DEC")
+az: str = os.getenv("FORECAST_AZ")
 
-kwp = installedPeakPower
-url_weather = "https://api.forecast.solar/estimate/{}/{}/{}/{}/{}".format(
-    lat, lon, dec, az, kwp
+url_weather: str = "https://api.forecast.solar/estimate/{}/{}/{}/{}/{}".format(
+    lat, lon, dec, az, installedPeakPower
 )
-watt_hours = [0] * 24
-watt_day = 0
-watt_battery = 0
+watt_hours: list[int] = [0] * 24
+watt_day: int = 0
+watt_battery: int = 0
 
-next_cycle = datetime.datetime.now(zone)
-next_forecast = next_cycle
+next_cycle: datetime = datetime.datetime.now(zone)
+next_forecast: datetime = next_cycle
+seconds_to_sleep: int
 
-mean_acApparent = 0
-
+init_values()
 
 while True:
+    seconds_to_sleep = 0
+    # if it is after 13 o'clock, try disabling powerlimits and and sleep until 5
+    if (
+        not datetime.time(5, 0, 0)
+        <= datetime.datetime.now(zone).time()
+        < datetime.time(13, 0, 0)
+    ):
+        now = datetime.datetime.now(zone)
+        future = now.replace(hour=5, minute=0, second=0, microsecond=0)
+        if now.hour >= 5:
+            future += datetime.timedelta(days=1)
+        logging.info("between 13 and 5 o'clock, disable powerLimits")
+        set_powerlimits(False)
+        init_values()
+        time.sleep((future - now).total_seconds())
+
     if next_forecast < datetime.datetime.now(zone):
-        next_forecast = datetime.datetime.now(zone) + datetime.timedelta(0, 600)
+        next_forecast = datetime.datetime.now(zone) + datetime.timedelta(0, 1800)
         try:
             watt_hours, watt_day, watt_battery = forecast()
         except RateLimitException:
@@ -146,9 +202,6 @@ while True:
     # free_battery = response_battery["moduleVoltage"] * (response_battery["usuableCapacity"] - response_battery["usuableRemainingCapacity"])
 
     # print(free_battery)
-    logging.info("Watt Hours: {}".format(watt_hours))
-    logging.info("Watt Day: {}".format(watt_day))
-    logging.info("Watt Battery: {}".format(watt_battery))
 
     # Make a request to the endpoint using the correct auth values
     response_poll = get_e3dc(url_poll)
@@ -185,14 +238,15 @@ while True:
     acPower = response_pvi["phases"]["0"]["power"]
     acCurrent = response_pvi["phases"]["0"]["current"]
 
-    if mean_acApparent > 0 and acApparentPower > 0:
-        # try to detect clouds
-        if (acApparentPower / mean_acApparent) < 0.8:
-            logging.info("AC Apparent: {}".format(acApparentPower))
-            logging.info("AC Apparent mean: {}".format(mean_acApparent))
-            logging.info("Likely clouds. Waiting for next cycle.")
-            time.sleep(polling_cycle)
-            continue
+    # need rework
+    # if mean_acApparent > 0 and acApparentPower > 0:
+    #     # try to detect clouds
+    #     if (acApparentPower / mean_acApparent) < 0.8:
+    #         logging.info("AC Apparent: {}".format(acApparentPower))
+    #         logging.info("AC Apparent mean: {}".format(mean_acApparent))
+    #         logging.info("Likely clouds. Waiting for next cycle.")
+    #         time.sleep(polling_cycle)
+    #         continue
 
     sliding_average_ac.append(acPower)
     sliding_average_acApparent.append(acApparentPower)
@@ -205,54 +259,44 @@ while True:
     # get power_settings
     response_power = get_e3dc(url_power_settings)
     powerLimitsUsed = response_power["powerLimitsUsed"]
-    maxChargePower = response_power["maxChargePower"]
+    maxChargePower: int = response_power["maxChargePower"]
 
     # get system status
     response_info = get_e3dc(url_status)
     pvDerated = response_info["pvDerated"]
 
-    logging.info("Grid: {}".format(mean_grid))
-    # logging.info("L1: {}".format(mean_L1))
-    logging.info("House: {}".format(mean_house))
-    logging.info("AC mean: {}".format(mean_ac))
-    logging.info("AC: {}".format(acPower))
-    logging.info("AC Apparent mean: {}".format(mean_acApparent))
-    logging.info("AC Apparent: {}".format(acApparentPower))
-    logging.info("AC Current mean: {}".format(mean_acCurrent))
-    logging.info("AC Current: {}".format(acCurrent))
-    logging.info("PV Derated: {}".format(pvDerated))
-    logging.info("Power Limits Used: {}".format(powerLimitsUsed))
-    logging.info("Max Charge Power: {}".format(maxChargePower))
-
     if next_cycle < datetime.datetime.now(zone):
-        logging.info("next cycle")
-        # if it is after 13 o'clock, try disabling powerlimits and set next_cylce to nextday 24 o'clock
-        if (
-            datetime.time(13, 0, 0)
-            <= datetime.datetime.now(zone).time()
-            < datetime.time(23, 59, 59)
-        ) or (
-            datetime.time(0, 0, 0)
-            <= datetime.datetime.now(zone).time()
-            < datetime.time(5, 0, 0)
-        ):
-            next_cycle = (
-                datetime.datetime.now(zone) + datetime.timedelta(days=1)
-            ).replace(hour=5, minute=0, second=0, microsecond=0)
-            logging.info("between 13 and 5 o'clock, disable powerLimits")
-            powerLimitsUsed = False
+        logging.info("### next cycle")
 
-        elif sum(watt_hours[0:15]) < 25000:
+        logging.info("Forecast Watt Hours: {}".format(watt_hours))
+        logging.info("Forecast Watt Day: {}".format(watt_day))
+        logging.info("Forecast Watt Battery: {}".format(watt_battery))
+
+        logging.info("Grid: {}".format(mean_grid))
+        # logging.info("L1: {}".format(mean_L1))
+        logging.info("House: {}".format(mean_house))
+        logging.info("AC mean: {}".format(mean_ac))
+        logging.info("AC: {}".format(acPower))
+        logging.info("AC Apparent mean: {}".format(mean_acApparent))
+        logging.info("AC Apparent: {}".format(acApparentPower))
+        logging.info("AC Current mean: {}".format(mean_acCurrent))
+        logging.info("AC Current: {}".format(acCurrent))
+        logging.info("PV Derated: {}".format(pvDerated))
+        logging.info("Power Limits Used: {}".format(powerLimitsUsed))
+        logging.info("Max Charge Power: {}".format(maxChargePower))
+
+        if sum(watt_hours[0:15]) < 25000:
             logging.info(
                 "skipping as forcasted only {} until 14 o´clock".format(
                     sum(watt_hours[0:15])
                 )
             )
-            logging.info("disable powerLimits")
+            logging.info("disable powerLimits, reassess in one hour")
             powerLimitsUsed = False
+            seconds_to_sleep = 3600
 
         # keep charging level at at least 10%
-        elif stateOfCharge < 10 and powerLimitsUsed:
+        elif stateOfCharge < 10:
             logging.info("below 10% SoC, disable powerlimits")
             powerLimitsUsed = False
 
@@ -268,6 +312,12 @@ while True:
             if maxChargePower < maxChargePowerTotal:
                 powerLimitsUsed = True
             else:
+                seconds_to_sleep = (
+                    datetime.datetime.now(zone)
+                    - datetime.datetime.now(zone).replace(
+                        hour=13, minute=0, second=0, microsecond=0
+                    )
+                ).total_seconds()
                 powerLimitsUsed = False
                 logging.info("max charge power reached")
         # elif mean_acCurrent <= 10.0: #mean_ac <=
@@ -277,13 +327,11 @@ while True:
         #         maxChargePower = maxChargePower - 50
         #     else:
         #         logging.info("charge disabled")
-        elif (
-            response_power["powerLimitsUsed"] is False
-            or response_power["maxChargePower"] != 0
-        ):
-            logging.info("default: enable powerLimits")
+        elif powerLimitsUsed is False or maxChargePower != 0 and newDay:
+            logging.info("enable powerLimits and set max charge to 0")
             powerLimitsUsed = True
             maxChargePower = 0
+            newDay = False
         else:
             logging.info("nothing to do")
 
@@ -298,6 +346,8 @@ while True:
             next_cycle = datetime.datetime.now(zone) + datetime.timedelta(
                 0, (readings / 2) * polling_cycle
             )
-
+    if seconds_to_sleep > 0:
+        logging.info("Sleeping {} seconds".format(seconds_to_sleep))
+        time.sleep(seconds_to_sleep)
     # polling_cycle
     time.sleep(polling_cycle)
