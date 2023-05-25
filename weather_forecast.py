@@ -188,6 +188,8 @@ while True:
     if mean_acApparent > 0 and acApparentPower > 0:
         # try to detect clouds
         if (acApparentPower / mean_acApparent) < 0.8:
+            logging.info("AC Apparent: {}".format(acApparentPower))
+            logging.info("AC Apparent mean: {}".format(mean_acApparent))      
             logging.info("Likely clouds. Waiting for next cycle.")
             time.sleep(polling_cycle)
             continue
