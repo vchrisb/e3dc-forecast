@@ -6,7 +6,7 @@ import os
 import re
 import time
 from statistics import mean
-from typing import Any, Collection
+from typing import Any, Collection, Tuple
 from zoneinfo import ZoneInfo
 
 import requests
@@ -18,23 +18,23 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s:%(message)s")
 
 polling_cycle: int = 15
 readings: int = 20
-sliding_average_grid: Collection
-sliding_average_L1: Collection
-sliding_average_house: Collection
-sliding_average_ac: Collection
-sliding_average_acApparent: Collection
-sliding_average_acCurrent: Collection
+sliding_average_grid: Collection = collections.deque(maxlen=readings)
+sliding_average_L1: Collection = collections.deque(maxlen=readings)
+sliding_average_house: Collection = collections.deque(maxlen=readings)
+sliding_average_ac: Collection = collections.deque(maxlen=readings)
+sliding_average_acApparent: Collection = collections.deque(maxlen=readings)
+sliding_average_acCurrent: Collection = collections.deque(maxlen=readings)
 
-mean_house: float
-mean_grid: float
-mean_ac: float
-mean_acApparent: float
-mean_acCurrent: float
+mean_house: float = 0.0
+mean_grid: float = 0.0
+mean_ac: float = 0.0
+mean_acApparent: float = 0.0
+mean_acCurrent: float = 0.0
 
-newDay: bool
+newDay: bool = True
 
 # Sample Basic Auth Url with login values as username and password
-url_base: str = os.getenv("REST_URL", default="https://localhost")
+url_base: str = os.environ["REST_URL"]
 url_poll: str = url_base + "/api/poll"
 url_powermeter_data: str = url_base + "/api/powermeter_data"
 url_power_settings: str = url_base + "/api/power_settings"
@@ -43,48 +43,16 @@ url_status: str = url_base + "/api/system_status"
 url_battery: str = url_base + "/api/battery_data"
 url_pvi: str = url_base + "/api/pvi_data"
 
-user: str = os.getenv("REST_USERNAME")
-passwd: str = os.getenv("REST_PASSWORD")
+user: str = os.environ["REST_USERNAME"]
+passwd: str = os.environ["REST_PASSWORD"]
 auth_values: tuple = (user, passwd)
 
-zone: str = ZoneInfo("Europe/Berlin")
-
-
-def init_values():
-    global sliding_average_grid
-    global sliding_average_L1
-    global sliding_average_house
-    global sliding_average_ac
-    global sliding_average_acApparent
-    global sliding_average_acCurrent
-
-    global mean_house
-    global mean_grid
-    global mean_ac
-    global mean_acApparent
-    global mean_acCurrent
-
-    global newDay
-
-    sliding_average_grid = collections.deque(maxlen=readings)
-    sliding_average_L1 = collections.deque(maxlen=readings)
-    sliding_average_house = collections.deque(maxlen=readings)
-    sliding_average_ac = collections.deque(maxlen=readings)
-    sliding_average_acApparent = collections.deque(maxlen=readings)
-    sliding_average_acCurrent = collections.deque(maxlen=readings)
-
-    mean_house = 0.0
-    mean_grid = 0.0
-    mean_ac = 0.0
-    mean_acApparent = 0.0
-    mean_acCurrent = 0.0
-
-    newDay = True
+zone: ZoneInfo = ZoneInfo("Europe/Berlin")
 
 
 @on_exception(expo, requests.exceptions.RequestException, max_tries=8)
 @limits(calls=12, period=3600)
-def forecast():
+def forecast() -> Tuple[list[int], int, int]:
     logging.info("Getting weather forecast")
     request = requests.get(url_weather)
 
@@ -97,10 +65,11 @@ def forecast():
     forecast = request.json()
     today_iso = datetime.date.today().isoformat()
     expression = r"{} (\d\d)".format(today_iso)
+    watt_hours: list[int] = [0] * 24
     for item in forecast["result"]["watts"].items():
         m = re.match(expression, item[0])
         if m:
-            watt_hours[int(m.group(1))] = item[1]
+            watt_hours[int(m.group(1))] = int(item[1])
 
     watt_battery = 0
     for hour in range(datetime.datetime.now(zone).hour, 13 + 1):
@@ -151,10 +120,10 @@ installedPeakPower: int = response_info["installedPeakPower"] / 1000
 maxChargePowerTotal: int = 1500
 
 # weather forecast
-lat: str = os.getenv("FORECAST_LAT")
-lon: str = os.getenv("FORECAST_LON")
-dec: str = os.getenv("FORECAST_DEC")
-az: str = os.getenv("FORECAST_AZ")
+lat: str = os.environ["FORECAST_LAT"]
+lon: str = os.environ["FORECAST_LON"]
+dec: str = os.environ["FORECAST_DEC"]
+az: str = os.environ["FORECAST_AZ"]
 
 url_weather: str = "https://api.forecast.solar/estimate/{}/{}/{}/{}/{}".format(
     lat, lon, dec, az, installedPeakPower
@@ -163,11 +132,10 @@ watt_hours: list[int] = [0] * 24
 watt_day: int = 0
 watt_battery: int = 0
 
-next_cycle: datetime = datetime.datetime.now(zone)
-next_forecast: datetime = next_cycle
+next_cycle: datetime.datetime = datetime.datetime.now(zone)
+next_forecast: datetime.datetime = next_cycle
 seconds_to_sleep: int
 
-init_values()
 
 while True:
     seconds_to_sleep = 0
@@ -183,13 +151,28 @@ while True:
             future += datetime.timedelta(days=1)
         logging.info("between 13 and 5 o'clock, disable powerLimits")
         set_powerlimits(False)
-        init_values()
+
+        sliding_average_grid = collections.deque(maxlen=readings)
+        sliding_average_L1 = collections.deque(maxlen=readings)
+        sliding_average_house = collections.deque(maxlen=readings)
+        sliding_average_ac = collections.deque(maxlen=readings)
+        sliding_average_acApparent = collections.deque(maxlen=readings)
+        sliding_average_acCurrent = collections.deque(maxlen=readings)
+
+        mean_house = 0.0
+        mean_grid = 0.0
+        mean_ac = 0.0
+        mean_acApparent = 0.0
+        mean_acCurrent = 0.0
+
+        newDay = True
+
         time.sleep((future - now).total_seconds())
 
     if next_forecast < datetime.datetime.now(zone):
         next_forecast = datetime.datetime.now(zone) + datetime.timedelta(0, 1800)
         try:
-            watt_hours, watt_day, watt_battery = forecast()
+            watt_hours, watt_day, watt_battery = forecast() # type: ignore
         except RateLimitException:
             logging.info("Ratelimit")
             pass
@@ -234,9 +217,9 @@ while True:
 
     # pvi
     response_pvi = get_e3dc(url_pvi)
-    acApparentPower = response_pvi["phases"]["0"]["apparentPower"]
-    acPower = response_pvi["phases"]["0"]["power"]
-    acCurrent = response_pvi["phases"]["0"]["current"]
+    acApparentPower: float = response_pvi["phases"]["0"]["apparentPower"]
+    acPower: float = response_pvi["phases"]["0"]["power"]
+    acCurrent: float = response_pvi["phases"]["0"]["current"]
 
     # need rework
     # if mean_acApparent > 0 and acApparentPower > 0:
@@ -312,12 +295,14 @@ while True:
             if maxChargePower < maxChargePowerTotal:
                 powerLimitsUsed = True
             else:
-                seconds_to_sleep = (
-                    datetime.datetime.now(zone).replace(
-                        hour=13, minute=0, second=0, microsecond=0
-                    )
-                    - datetime.datetime.now(zone)
-                ).total_seconds()
+                seconds_to_sleep = int(
+                    (
+                        datetime.datetime.now(zone).replace(
+                            hour=13, minute=0, second=0, microsecond=0
+                        )
+                        - datetime.datetime.now(zone)
+                    ).total_seconds()
+                )
                 powerLimitsUsed = False
                 maxChargePower = maxChargePowerTotal
                 logging.info("max charge power reached")
