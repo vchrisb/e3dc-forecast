@@ -278,7 +278,7 @@ while True:
         #     else:
         #         logging.info("charge disabled")
         elif (
-            response_power["powerLimitsUsed"] == False
+            response_power["powerLimitsUsed"] is False
             or response_power["maxChargePower"] != 0
         ):
             logging.info("default: enable powerLimits")
