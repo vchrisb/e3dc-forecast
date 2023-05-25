@@ -231,23 +231,16 @@ while True:
             datetime.time(13, 0, 0)
             <= datetime.datetime.now(zone).time()
             < datetime.time(23, 59, 59)
+        ) or (
+            datetime.time(0, 0, 0)
+            <= datetime.datetime.now(zone).time()
+            < datetime.time(5, 0, 0)
         ):
             next_cycle = (
                 datetime.datetime.now(zone) + datetime.timedelta(days=1)
             ).replace(hour=5, minute=0, second=0, microsecond=0)
             logging.info("between 13 and 5 o'clock, disable powerLimits")
             powerLimitsUsed = False
-
-        elif (
-            datetime.time(0, 0, 0)
-            <= datetime.datetime.now(zone).time()
-            < datetime.time(7, 30, 0)
-            and mean_ac < 4300
-        ):
-            print(datetime.datetime.now(zone).hour)
-            logging.info("between 0:00 and 7:30 o'clock, enable powerLimits")
-            powerLimitsUsed = True
-            maxChargePower = 0
 
         elif sum(watt_hours[0:15]) < 25000:
             logging.info(
@@ -259,9 +252,9 @@ while True:
             powerLimitsUsed = False
 
         # keep charging level at at least 10%
-        # elif stateOfCharge < 10:
-        #    logging.info("below 10% SoC, disable powerlimits")
-        #    powerLimitsUsed = False
+        elif stateOfCharge < 10 and powerLimitsUsed:
+            logging.info("below 10% SoC, disable powerlimits")
+            powerLimitsUsed = False
 
         # elif mean_grid >= 0.997 * deratePower or mean_ac >= 0.995 * 4600:
         elif (
@@ -284,8 +277,15 @@ while True:
         #         maxChargePower = maxChargePower - 50
         #     else:
         #         logging.info("charge disabled")
+        elif (
+            response_power["powerLimitsUsed"] == False
+            or response_power["maxChargePower"] != 0
+        ):
+            logging.info("default: enable powerLimits")
+            powerLimitsUsed = True
+            maxChargePower = 0
         else:
-            pass
+            logging.info("nothing to do")
 
         if (
             response_power["powerLimitsUsed"] != powerLimitsUsed
