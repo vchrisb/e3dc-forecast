@@ -31,7 +31,7 @@ mean_ac: float = 0.0
 mean_acApparent: float = 0.0
 mean_acCurrent: float = 0.0
 
-newDay: bool = True
+reset: bool = True
 
 # Sample Basic Auth Url with login values as username and password
 url_base: str = os.environ["REST_URL"]
@@ -165,7 +165,7 @@ while True:
         mean_acApparent = 0.0
         mean_acCurrent = 0.0
 
-        newDay = True
+        reset = True
 
         time.sleep((future - now).total_seconds())
 
@@ -255,6 +255,7 @@ while True:
         logging.info("Forecast Watt Day: {}".format(watt_day))
         logging.info("Forecast Watt Battery: {}".format(watt_battery))
 
+        logging.info("SoC: {}".format(stateOfCharge))
         logging.info("Grid: {}".format(mean_grid))
         # logging.info("L1: {}".format(mean_L1))
         logging.info("House: {}".format(mean_house))
@@ -282,6 +283,7 @@ while True:
         elif stateOfCharge < 10:
             logging.info("below 10% SoC, disable powerlimits")
             powerLimitsUsed = False
+            reset = True
 
         # elif mean_grid >= 0.997 * deratePower or mean_ac >= 0.995 * 4600:
         elif (
@@ -314,11 +316,11 @@ while True:
         #     else:
         #         logging.info("charge disabled")
         # if it is the beginning of a new day or after a pod restart
-        elif powerLimitsUsed is False and newDay and stateOfCharge < 85:
+        elif powerLimitsUsed is False and reset and stateOfCharge < 85:
             logging.info("enable powerLimits and set max charge to 0")
             powerLimitsUsed = True
             maxChargePower = 0
-            newDay = False
+            reset = False
         else:
             logging.info("nothing to do")
 
