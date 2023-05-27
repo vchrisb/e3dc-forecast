@@ -83,8 +83,12 @@ def forecast() -> Tuple[list[int], int, int]:
 
 @on_exception(expo, requests.exceptions.RequestException, max_tries=8)
 def set_powerlimits(
-    powerLimitsUsed=False, maxChargePower=1500, weatherRegulatedChargeEnabled=False
+    powerLimitsUsed: bool = False,
+    maxChargePower: int | None = None,
+    weatherRegulatedChargeEnabled: bool = False,
 ):
+    if maxChargePower is None:
+        maxChargePower = maxChargePowerTotal
     payload = {
         "powerLimitsUsed": powerLimitsUsed,
         "maxChargePower": maxChargePower,
@@ -120,8 +124,8 @@ def get_e3dc(url):
 
 response_info: Any = get_e3dc(url_info)
 deratePower: int = response_info["deratePower"]
-installedPeakPower: int = response_info["installedPeakPower"] / 1000
-maxChargePowerTotal: int = 1500
+installedPeakPower: int = response_info["installedPeakPower"]
+maxChargePowerTotal: int = response_info["maxBatChargePower"]
 
 # weather forecast
 lat: str = os.environ["FORECAST_LAT"]
@@ -130,7 +134,7 @@ dec: str = os.environ["FORECAST_DEC"]
 az: str = os.environ["FORECAST_AZ"]
 
 url_weather: str = "https://api.forecast.solar/estimate/{}/{}/{}/{}/{}".format(
-    lat, lon, dec, az, installedPeakPower
+    lat, lon, dec, az, installedPeakPower / 1000
 )
 watt_hours: list[int] = [0] * 24
 watt_day: int = 0
@@ -140,6 +144,10 @@ next_cycle: datetime.datetime = datetime.datetime.now(zone)
 next_forecast: datetime.datetime = next_cycle
 seconds_to_sleep: int
 
+logging.info("Derate Power: {}".format(deratePower))
+logging.info("Installed Peak Power: {}".format(installedPeakPower))
+logging.info("Max Charge Power: {}".format(maxChargePowerTotal))
+logging.info("Forecast Solar: {}".format(url_weather))
 
 while True:
     seconds_to_sleep = 0
