@@ -92,7 +92,11 @@ def set_powerlimits(
     }
     headers = {"Content-Type": "application/json"}
     request = requests.post(
-        url_power_settings, auth=auth_values, data=json.dumps(payload), headers=headers, timeout=20
+        url_power_settings,
+        auth=auth_values,
+        data=json.dumps(payload),
+        headers=headers,
+        timeout=20,
     )
     if request.status_code == 200:
         logging.info(
