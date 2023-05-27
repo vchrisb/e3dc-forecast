@@ -109,7 +109,7 @@ def set_powerlimits(
 @on_exception(expo, requests.exceptions.RequestException, max_tries=8)
 def get_e3dc(url):
     logging.info("Requesting {}".format(url))
-    return requests.get(url, auth=auth_values).json()
+    return requests.get(url, auth=auth_values, timeout=20).json()
 
 
 # Make a request to the endpoint using the correct auth values for info
