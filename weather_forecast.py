@@ -54,7 +54,7 @@ zone: ZoneInfo = ZoneInfo("Europe/Berlin")
 @limits(calls=12, period=3600)
 def forecast() -> Tuple[list[int], int, int]:
     logging.info("Getting weather forecast")
-    request = requests.get(url_weather)
+    request = requests.get(url_weather, timeout=30)
 
     if request.status_code == 429:
         period_remaining = (60 - datetime.datetime.now(zone).minute) * 60
@@ -92,7 +92,7 @@ def set_powerlimits(
     }
     headers = {"Content-Type": "application/json"}
     request = requests.post(
-        url_power_settings, auth=auth_values, data=json.dumps(payload), headers=headers
+        url_power_settings, auth=auth_values, data=json.dumps(payload), headers=headers, timeout=20
     )
     if request.status_code == 200:
         logging.info(
